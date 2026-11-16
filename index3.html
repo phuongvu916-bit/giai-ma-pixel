@@ -1,0 +1,1678 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GIẢI MÃ PIXEL – TÔ MÀU BỨC TRANH | Pixel Art Quiz</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Mammoth.js để đọc tệp Word .docx trực tiếp trên trình duyệt -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <!-- Canvas Confetti cho hiệu ứng chúc mừng -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- LZ-String để hỗ trợ nén dự phòng -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+    <!-- QRCode.js để tạo mã QR chia sẻ nhanh -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Be Vietnam Pro', 'Inter', sans-serif;
+            background-color: #f0fdfa;
+            color: #1e293b;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        .cell-sticker-bg {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+            opacity: 0.45;
+        }
+        @keyframes floatSlow {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-14px) rotate(6deg); }
+        }
+        .sticker-float { animation: floatSlow 9s ease-in-out infinite; }
+        .sticker-float-delay { animation: floatSlow 12s ease-in-out 3s infinite; }
+
+        .edu-card {
+            position: relative;
+            z-index: 1;
+            background: rgba(255, 255, 255, 0.96);
+            border-radius: 1.25rem;
+            box-shadow: 0 10px 25px -5px rgba(13, 148, 136, 0.08), 0 8px 10px -6px rgba(13, 148, 136, 0.04);
+            border: 1px solid #ccfbf1;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+        .animate-shake { animation: shake 0.45s cubic-bezier(.36,.07,.19,.97) both; }
+
+        @keyframes popSuccess {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+            100% { transform: scale(1); }
+        }
+        .animate-pop { animation: popSuccess 0.35s ease-out; }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #99f6e4; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #2dd4bf; }
+
+        #pixelCanvas, #resultCanvas {
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+            border-radius: 0.75rem;
+            background-color: #ffffff;
+        }
+
+        @media print {
+            body * { visibility: hidden; }
+            #completionScreen, #completionScreen * { visibility: visible; }
+            #completionScreen { position: absolute; left: 0; top: 0; width: 100%; background: white !important; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- STICKER TẾ BÀO TRANG TRÍ -->
+    <div class="cell-sticker-bg" aria-hidden="true">
+        <svg class="sticker-float absolute -top-6 -left-6 w-48 h-48 text-teal-200" viewBox="0 0 200 200" fill="none">
+            <path d="M95 18C138 14 178 44 183 89C188 134 156 177 111 183C66 189 22 158 17 113C12 68 52 22 95 18Z" fill="#ccfbf1" stroke="#5eead4" stroke-width="4"/>
+            <circle cx="102" cy="98" r="28" fill="#99f6e4" stroke="#2dd4bf" stroke-width="3"/>
+            <circle cx="106" cy="94" r="10" fill="#14b8a6" opacity="0.5"/>
+        </svg>
+        <svg class="sticker-float-delay absolute -bottom-8 -right-6 w-56 h-56 text-emerald-200" viewBox="0 0 220 220" fill="none">
+            <rect x="24" y="34" width="172" height="152" rx="34" fill="#d1fae5" stroke="#6ee7b7" stroke-width="5"/>
+            <rect x="34" y="44" width="152" height="132" rx="26" fill="#ecfdf5" stroke="#34d399" stroke-width="2.5" stroke-dasharray="6 4"/>
+        </svg>
+    </div>
+
+    <!-- TOAST & MODALS -->
+    <div id="toastContainer" class="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-md pointer-events-none"></div>
+
+    <div id="confirmModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-teal-100">
+            <div class="flex items-center gap-3 text-amber-500 mb-3">
+                <i class="fa-solid fa-triangle-exclamation text-2xl"></i>
+                <h3 id="confirmTitle" class="text-lg font-bold text-slate-800">Xác nhận thao tác</h3>
+            </div>
+            <p id="confirmMessage" class="text-slate-600 text-sm mb-6 leading-relaxed">Bạn có chắc chắn muốn thực hiện hành động này?</p>
+            <div class="flex justify-end gap-3">
+                <button id="confirmCancelBtn" class="px-4 py-2.5 rounded-xl font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition">Hủy bỏ</button>
+                <button id="confirmOkBtn" class="px-4 py-2.5 rounded-xl font-semibold text-white bg-rose-500 hover:bg-rose-600 shadow-md transition">Đồng ý</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- QUESTIONS PREVIEW MODAL -->
+    <div id="questionsPreviewModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-teal-100">
+            <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-teal-50/50 rounded-t-2xl">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-list-check"></i>
+                    </span>
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-lg">Danh sách câu hỏi đã nhận diện</h3>
+                        <p id="modalQuestionSummary" class="text-xs text-teal-700 font-medium"></p>
+                    </div>
+                </div>
+                <button onclick="closeQuestionsModal()" class="w-9 h-9 rounded-xl bg-white text-slate-500 hover:text-rose-500 hover:bg-rose-50 flex items-center justify-center transition shadow-sm">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div id="modalQuestionsList" class="p-5 overflow-y-auto space-y-4 flex-1"></div>
+            <div class="p-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex justify-end">
+                <button onclick="closeQuestionsModal()" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-xl transition">Đóng cửa sổ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PUBLISH SUCCESS MODAL -->
+    <div id="publishSuccessModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border-2 border-teal-200 space-y-5">
+            <div class="text-center space-y-2">
+                <div class="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center text-2xl">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <h3 class="text-2xl font-extrabold text-emerald-800">XUẤT BẢN THÀNH CÔNG!</h3>
+                <p class="text-xs text-slate-500">Trò chơi đã được lưu vào máy chủ dùng chung. Học sinh có thể truy cập từ mọi thiết bị.</p>
+            </div>
+            
+            <div class="space-y-3 bg-teal-50/70 p-4 rounded-xl border border-teal-100 text-sm">
+                <div>
+                    <label class="block text-xs font-bold text-teal-900 mb-1">Mã trò chơi (Game ID):</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="publishedGameIdOutput" readonly class="w-full px-3 py-2 bg-white border border-teal-200 rounded-xl font-mono font-bold text-teal-800 text-center text-base">
+                        <button type="button" onclick="copyPublishedGameId()" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs cursor-pointer">Copy Mã</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-teal-900 mb-1">Đường link học sinh:</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="publishedLinkOutput" readonly class="w-full px-3 py-2 bg-white border border-teal-200 rounded-xl font-mono text-xs text-slate-600">
+                        <button type="button" onclick="copyPublishedLink()" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-xs cursor-pointer">Copy Link</button>
+                    </div>
+                </div>
+                <div id="domainConfigBox" class="hidden p-3 rounded-xl bg-amber-50 border border-amber-300 space-y-2">
+                    <p class="text-xs font-bold text-amber-800"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Bạn đang mở tệp từ máy tính (file:///) hoặc bản xem trước!</p>
+                    <p class="text-[11px] text-amber-700">Hãy nhập địa chỉ website HTTPS đã triển khai (GitHub Pages / Firebase Hosting) để tạo link & mã QR cho học sinh:</p>
+                    <div class="flex gap-2">
+                        <input type="url" id="customHttpsDomainInput" placeholder="https://ten-cua-ban.github.io/giai-ma-pixel/" class="w-full px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-mono">
+                        <button type="button" onclick="applyCustomHttpsDomain()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs shrink-0 cursor-pointer">Tạo Link</button>
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row items-center gap-4 bg-white p-3 rounded-xl border border-teal-200 mt-2">
+                    <div id="publishedQrContainer" class="p-2 bg-white rounded-lg border border-slate-200 shrink-0"></div>
+                    <div class="text-xs text-slate-600 space-y-1">
+                        <p class="font-bold text-teal-900"><i class="fa-solid fa-qrcode mr-1"></i> Mã QR chia sẻ nhanh</p>
+                        <p>Học sinh quét mã QR hoặc bấm mở thử để kiểm tra giao diện làm bài.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2.5 pt-2">
+                <button type="button" id="openTestStudentLinkBtn" onclick="openTestStudentLink()" class="flex-1 py-3 px-4 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md text-xs flex items-center justify-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-external-link"></i> MỞ THỬ LINK HỌC SINH
+                </button>
+                <button type="button" onclick="closePublishModal()" class="py-3 px-5 rounded-xl font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 text-xs cursor-pointer">ĐÓNG</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TEACHER ADMIN MODAL -->
+    <div id="teacherAdminModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border-2 border-rose-200 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </span>
+                    <div>
+                        <h3 id="adminModalTitle" class="font-extrabold text-slate-800 text-base">Xác thực quyền Giáo viên</h3>
+                        <p class="text-[11px] text-slate-500">QUẢN LÝ KẾT QUẢ GOOGLE SHEETS</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeTeacherAdminModal()" class="text-slate-400 hover:text-slate-600 cursor-pointer">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <div id="adminStepAuth" class="space-y-4">
+                <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900">
+                    <i class="fa-solid fa-lock mr-1"></i> Nhập mật khẩu quản trị giáo viên để xác thực trên máy chủ trước khi xóa bảng xếp hạng.
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Mật khẩu quản trị <span class="text-rose-500">*</span></label>
+                    <input type="password" id="adminPasswordInput" placeholder="Nhập mật khẩu quản trị..." class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:border-rose-500">
+                </div>
+                <div class="flex items-center gap-2 bg-teal-50/70 p-2.5 rounded-xl border border-teal-100">
+                    <input type="checkbox" id="autoBackupBeforeClear" checked class="rounded text-teal-600">
+                    <label for="autoBackupBeforeClear" class="text-xs font-semibold text-teal-900 cursor-pointer">Tự động tải bản sao lưu CSV trước khi xóa</label>
+                </div>
+                <div class="flex justify-end gap-2.5 pt-2">
+                    <button type="button" onclick="closeTeacherAdminModal()" class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 cursor-pointer">HỦY</button>
+                    <button type="button" id="adminProceedBtn" onclick="proceedTeacherAdminStep()" class="px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 shadow-md cursor-pointer">TIẾP TỤC</button>
+                </div>
+            </div>
+
+            <div id="adminStepFinalConfirm" class="hidden space-y-4">
+                <div class="p-4 rounded-xl bg-rose-50 border-2 border-rose-300 text-xs text-rose-900 space-y-2 leading-relaxed">
+                    <div class="font-extrabold text-rose-700 text-sm flex items-center gap-1.5"><i class="fa-solid fa-circle-exclamation"></i> XÁC NHẬN LẦN CUỐI</div>
+                    <p>Bạn sắp xóa toàn bộ kết quả học sinh trong trang tính <b>diem luyen tap</b> (giữ nguyên tiêu đề dòng 1). Dữ liệu không thể khôi phục!</p>
+                </div>
+                <div id="adminServerStatus" class="hidden p-3 rounded-xl text-xs font-semibold text-center"></div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeTeacherAdminModal()" class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer">HỦY</button>
+                    <button type="button" id="adminConfirmDeleteBtn" onclick="executeServerClearResults()" class="px-5 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 hover:bg-rose-700 shadow-lg cursor-pointer">XÁC NHẬN XÓA</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HEADER -->
+    <header id="mainHeader" class="bg-gradient-to-r from-teal-600 via-teal-500 to-emerald-500 text-white shadow-lg sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="flex items-center gap-3.5 text-center sm:text-left">
+                <div class="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl p-2 flex items-center justify-center shadow-inner border border-white/30 shrink-0">
+                    <svg viewBox="0 0 24 24" class="w-8 h-8" fill="none">
+                        <rect x="2" y="2" width="6" height="6" rx="1" fill="#FBBF24"/>
+                        <rect x="9" y="2" width="6" height="6" rx="1" fill="#FFFFFF"/>
+                        <rect x="16" y="2" width="6" height="6" rx="1" fill="#34D399"/>
+                        <rect x="2" y="9" width="6" height="6" rx="1" fill="#FFFFFF"/>
+                        <rect x="9" y="9" width="6" height="6" rx="1" fill="#F97316"/>
+                        <rect x="16" y="9" width="6" height="6" rx="1" fill="#FFFFFF"/>
+                        <rect x="2" y="16" width="6" height="6" rx="1" fill="#60A5FA"/>
+                        <rect x="9" y="16" width="6" height="6" rx="1" fill="#FFFFFF"/>
+                        <rect x="16" y="16" width="6" height="6" rx="1" fill="#FBBF24"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight uppercase drop-shadow-sm">GIẢI MÃ PIXEL – TÔ MÀU BỨC TRANH</h1>
+                    <p class="text-teal-50 text-xs sm:text-sm font-medium">Học tập tương tác thông qua tác phẩm nghệ thuật Pixel Art • <span class="opacity-90 italic">Pixel Art Quiz – Reveal The Picture</span></p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button id="soundToggleBtn" onclick="toggleSound()" class="px-3.5 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-white text-sm font-semibold flex items-center gap-2 transition cursor-pointer" title="Bật/Tắt âm thanh hiệu ứng">
+                    <i id="soundIcon" class="fa-solid fa-volume-high"></i>
+                    <span class="hidden md:inline">Âm thanh: Bật</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- SETUP SCREEN (TEACHER) -->
+    <main id="setupScreen" class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+            
+            <div class="lg:col-span-7 space-y-6">
+                <div class="edu-card p-6 sm:p-7">
+                    <div class="flex items-center gap-3 mb-6 pb-4 border-b border-teal-100">
+                        <span class="w-10 h-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center text-lg font-bold">
+                            <i class="fa-solid fa-sliders"></i>
+                    <div id="sheetsSyncStatus" class="hidden p-3 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 text-center space-y-2">
+                        <div><i class="fa-solid fa-cloud-arrow-up mr-1"></i> <span id="sheetsSyncText">Đang gửi kết quả về Google Sheets...</span></div>
+                        <button type="button" id="retrySheetsSyncBtn" onclick="retrySendResultToGoogleSheets()" class="hidden px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer">
+                            <i class="fa-solid fa-rotate-right mr-1"></i> Gửi lại kết quả
+                        </button>
+                    </div>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="bg-teal-50/50 p-4 rounded-2xl border border-teal-100/80">
+                            <h3 class="text-sm font-bold text-teal-800 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center">1</span>
+                                Thông tin bài học & Lớp <span class="text-rose-500">*</span>
+                            </h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Tên bài học <span class="text-rose-500">*</span></label>
+                                    <div class="relative">
+                                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-teal-600"><i class="fa-solid fa-book text-sm"></i></span>
+                                        <input type="text" id="lessonNameInput" placeholder="VD: Bài 18 - Tế bào, đơn vị sự sống" class="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-teal-500">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Lớp áp dụng <span class="text-rose-500">*</span></label>
+                                    <div class="relative">
+                                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-teal-600"><i class="fa-solid fa-graduation-cap text-sm"></i></span>
+                                        <input type="text" id="playerClassInput" placeholder="VD: Lớp 6A1" class="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-teal-500">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-50/70 p-4 rounded-2xl border border-slate-200/80">
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-sm font-bold text-teal-800 uppercase tracking-wider flex items-center gap-2">
+                                    <span class="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center">2</span>
+                                    Tải ảnh mẫu bí mật <span class="text-rose-500">*</span>
+                                </h3>
+                                <span class="text-xs text-slate-500 font-medium">JPG, PNG, WEBP</span>
+                            </div>
+
+                            <div id="imageDropZone" onclick="document.getElementById('imageFileInput').click()" class="border-2 border-dashed border-teal-300 hover:border-teal-500 bg-white hover:bg-teal-50/30 rounded-2xl p-6 text-center cursor-pointer transition group">
+                                <input type="file" id="imageFileInput" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" class="hidden">
+                                <div class="w-12 h-12 rounded-2xl bg-teal-100 text-teal-600 mx-auto flex items-center justify-center text-xl mb-3 group-hover:scale-110 transition"><i class="fa-regular fa-image"></i></div>
+                                <p class="text-sm font-semibold text-slate-700">Nhấn để chọn ảnh hoặc kéo thả ảnh vào đây</p>
+                            </div>
+
+                            <div id="imagePreviewContainer" class="hidden mt-4 bg-white p-4 rounded-xl border border-teal-100 shadow-sm">
+                                <div class="grid grid-cols-2 gap-4 items-center">
+                                    <div class="text-center">
+                                        <p class="text-xs font-semibold text-slate-500 mb-2">Ảnh gốc đã tải lên</p>
+                                        <div class="aspect-square max-h-40 mx-auto rounded-lg overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center">
+                                            <img id="originalImagePreview" src="" alt="Ảnh gốc" class="w-full h-full object-contain">
+                                        </div>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-xs font-semibold text-teal-700 mb-2">Xem trước Pixel Art (<span id="previewResLabel">45×45</span>)</p>
+                                        <div class="aspect-square max-h-40 mx-auto rounded-lg overflow-hidden border border-teal-200 bg-slate-100 flex items-center justify-center">
+                                            <canvas id="previewPixelCanvas" class="w-full h-full object-contain"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center mt-4 pt-3 border-t border-slate-100">
+                                    <span id="imageFileName" class="text-xs text-slate-500 truncate max-w-[200px]"></span>
+                                    <button type="button" onclick="removeUploadedImage()" class="px-3 py-1.5 text-xs font-semibold bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg transition"><i class="fa-solid fa-trash-can mr-1"></i> Xóa ảnh</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-50/70 p-4 rounded-2xl border border-slate-200/80">
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-sm font-bold text-teal-800 uppercase tracking-wider flex items-center gap-2">
+                                    <span class="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center">3</span>
+                                    Tải lên bộ câu hỏi (.DOCX) <span class="text-rose-500">*</span>
+                                </h3>
+                                <span class="text-xs text-blue-600 font-semibold bg-blue-50 px-2.5 py-0.5 rounded-full">Word</span>
+                            </div>
+
+                            <div id="docxDropZone" onclick="document.getElementById('docxFileInput').click()" class="border-2 border-dashed border-amber-300 hover:border-amber-500 bg-white hover:bg-amber-50/30 rounded-2xl p-5 text-center cursor-pointer transition group">
+                                <input type="file" id="docxFileInput" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden">
+                                <div class="w-11 h-11 rounded-2xl bg-amber-100 text-amber-600 mx-auto flex items-center justify-center text-xl mb-2.5 group-hover:scale-110 transition"><i class="fa-solid fa-file-word"></i></div>
+                                <p class="text-sm font-semibold text-slate-700">Chọn tệp Word (.DOCX) chứa câu hỏi trắc nghiệm</p>
+                            </div>
+
+                            <div id="docxStatusContainer" class="hidden mt-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2.5">
+                                        <i class="fa-solid fa-file-word text-blue-600 text-xl"></i>
+                                        <div>
+                                            <p id="docxFileName" class="text-xs font-bold text-slate-800 truncate max-w-[200px]"></p>
+                                            <p id="docxQuestionCountText" class="text-xs font-semibold text-emerald-600"></p>
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button type="button" onclick="openQuestionsModal()" class="px-3 py-1.5 text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg transition"><i class="fa-solid fa-eye mr-1"></i> Xem</button>
+                                        <button type="button" onclick="removeUploadedDocx()" class="px-2.5 py-1.5 text-xs font-semibold bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg transition"><i class="fa-solid fa-trash-can"></i></button>
+                                    </div>
+                                </div>
+                                <div id="docxWarningBox" class="hidden p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 space-y-1"></div>
+                            </div>
+                        </div>
+
+                        <div class="bg-teal-50/50 p-4 rounded-2xl border border-teal-100/80">
+                            <h3 class="text-sm font-bold text-teal-800 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center">4</span>
+                                Chọn độ phân giải Pixel
+                            </h3>
+                            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5" id="resolutionSelector">
+                                <button type="button" data-res="30" class="res-btn p-2.5 rounded-xl border border-slate-200 bg-white hover:border-teal-400 text-center transition">
+                                    <div class="text-xs font-bold text-slate-700">Rất dễ</div>
+                                    <div class="text-xs text-slate-500 mt-0.5 font-mono">30 × 30</div>
+                                </button>
+                                <button type="button" data-res="45" class="res-btn active p-2.5 rounded-xl border-2 border-teal-600 bg-teal-600 text-white text-center shadow-md transition">
+                                    <div class="text-xs font-bold">Dễ</div>
+                                    <div class="text-xs text-teal-100 mt-0.5 font-mono">45 × 45</div>
+                                </button>
+                                <button type="button" data-res="60" class="res-btn p-2.5 rounded-xl border border-slate-200 bg-white hover:border-teal-400 text-center transition">
+                                    <div class="text-xs font-bold text-slate-700">Trung bình</div>
+                                    <div class="text-xs text-slate-500 mt-0.5 font-mono">60 × 60</div>
+                                </button>
+                                <button type="button" data-res="80" class="res-btn p-2.5 rounded-xl border border-slate-200 bg-white hover:border-teal-400 text-center transition">
+                                    <div class="text-xs font-bold text-slate-700">Khó</div>
+                                    <div class="text-xs text-slate-500 mt-0.5 font-mono">80 × 80</div>
+                                </button>
+                                <button type="button" data-res="100" class="res-btn p-2.5 rounded-xl border border-slate-200 bg-white hover:border-teal-400 text-center transition col-span-2 sm:col-span-1">
+                                    <div class="text-xs font-bold text-slate-700">Cực khó</div>
+                                    <div class="text-xs text-slate-500 mt-0.5 font-mono">100 × 100</div>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <button id="publishGameBtn" type="button" onclick="publishGameToServer()" disabled
+                                class="w-full py-4 px-6 rounded-2xl font-extrabold text-white bg-teal-600 hover:bg-teal-700 disabled:bg-slate-300 disabled:cursor-not-allowed shadow-lg shadow-teal-600/25 flex items-center justify-center gap-2.5 text-base transition cursor-pointer">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                                XUẤT BẢN TRÒ CHƠI
+                            </button>
+                            <button type="button" onclick="startDemoGame()"
+                                class="w-full py-4 px-6 rounded-2xl font-extrabold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2.5 text-base transition cursor-pointer">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                CHƠI THỬ MẪU
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-5 space-y-6">
+                <!-- THƯ VIỆN TRÒ CHƠI CỦA TÔI -->
+                <div class="edu-card p-6 border-2 border-teal-200">
+                    <div class="flex items-center justify-between mb-4 pb-3 border-b border-teal-100">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-9 h-9 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-book-bookmark"></i>
+                            </span>
+                            <div>
+                                <h2 class="text-base font-extrabold text-teal-900">THƯ VIỆN TRÒ CHƠI CỦA TÔI</h2>
+                                <p class="text-[11px] text-slate-500">Các trò chơi đã xuất bản trên máy chủ</p>
+                            </div>
+                        </div>
+                        <button type="button" onclick="loadTeacherGamesList()" class="px-2.5 py-1 text-xs bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-lg transition"><i class="fa-solid fa-rotate mr-1"></i> Tải lại</button>
+                    </div>
+                    <div id="teacherGamesLibraryList" class="space-y-3 max-h-[340px] overflow-y-auto pr-1">
+                        <div class="text-center py-6 text-xs text-slate-400">Đang tải danh sách trò chơi...</div>
+                    </div>
+                </div>
+
+                <!-- TEACHER ADMIN KẾT QUẢ -->
+                <div class="edu-card p-6 border-2 border-rose-200/80 bg-gradient-to-b from-white to-rose-50/30">
+                    <div class="flex items-center justify-between mb-3 pb-3 border-b border-rose-100">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-bold">
+                                <i class="fa-solid fa-shield-halved"></i>
+                            </span>
+                            <div>
+                                <h2 class="text-base font-extrabold text-rose-900">QUẢN LÝ KẾT QUẢ (SHEETS)</h2>
+                                <p class="text-[11px] text-slate-500">Trang tính diem luyen tap</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <button type="button" onclick="openTeacherAdminModal('backup')" class="py-2.5 px-3.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition cursor-pointer"><i class="fa-solid fa-file-export"></i> SAO LƯU (CSV)</button>
+                        <button type="button" onclick="openTeacherAdminModal('clear')" class="py-2.5 px-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition cursor-pointer"><i class="fa-solid fa-trash-can"></i> XÓA KẾT QUẢ CŨ</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- STUDENT JOIN SCREEN -->
+    <section id="studentJoinScreen" class="hidden flex-1 max-w-lg w-full mx-auto px-4 py-10 flex-col justify-center">
+        <div class="edu-card p-6 sm:p-8 space-y-6 border-2 border-teal-200">
+            <div class="text-center space-y-2">
+                <div class="w-14 h-14 rounded-2xl bg-teal-100 text-teal-600 mx-auto flex items-center justify-center text-2xl shadow-sm"><i class="fa-solid fa-users"></i></div>
+                <span class="inline-block px-3 py-1 rounded-full bg-teal-50 text-teal-700 text-xs font-bold border border-teal-200">CHẾ ĐỘ CHƠI THEO NHÓM</span>
+                <h2 id="studentGameTitle" class="text-xl sm:text-2xl font-extrabold text-teal-900">THỬ THÁCH GIẢI MÃ PIXEL</h2>
+                <p id="studentLessonBadge" class="text-sm font-bold text-amber-600"></p>
+                <p class="text-xs sm:text-sm text-slate-500 font-medium">Thảo luận cùng nhóm để chọn đáp án chính xác nhất!</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5">Tên nhóm <span class="text-rose-500">*</span></label>
+                    <input type="text" id="studentJoinName" placeholder="Ví dụ: Nhóm Sao Kim" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:outline-none focus:border-teal-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5">Lớp <span class="text-rose-500">*</span></label>
+                    <input type="text" id="studentJoinClass" placeholder="Ví dụ: Lớp 6A1" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:outline-none focus:border-teal-500">
+                </div>
+            </div>
+            <button type="button" onclick="startStudentAssignedGame()" class="w-full py-4 px-6 rounded-2xl font-extrabold text-white bg-gradient-to-r from-teal-600 to-emerald-500 hover:from-teal-700 hover:to-emerald-600 shadow-lg flex items-center justify-center gap-2.5 text-base cursor-pointer">
+                <i class="fa-solid fa-rocket"></i> BẮT ĐẦU GIẢI MÃ CÙNG NHÓM
+            </button>
+        </div>
+    </section>
+
+    <!-- GAME SCREEN -->
+    <section id="gameScreen" class="hidden flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex-col gap-5">
+        <div class="edu-card p-4 flex flex-wrap items-center justify-between gap-4 bg-white">
+            <div class="flex items-center gap-3">
+                <button onclick="confirmExitGame()" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer"><i class="fa-solid fa-arrow-left"></i> Thoát</button>
+                <div class="h-8 w-px bg-slate-200 hidden sm:block"></div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span id="hudPlayerName" class="font-extrabold text-teal-900 text-sm sm:text-base">Nhóm 1</span>
+                        <span id="hudDemoBadge" class="hidden px-2 py-0.5 text-[10px] font-bold uppercase bg-amber-100 text-amber-700 rounded-full">Chơi thử mẫu</span>
+                    </div>
+                    <p id="hudPlayerClass" class="text-xs text-slate-500 font-medium">Lớp</p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2 sm:gap-4">
+                <div class="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2">
+                    <i class="fa-regular fa-clock text-teal-600"></i>
+                    <div>
+                        <div class="text-[10px] text-slate-400 font-semibold uppercase">Thời gian</div>
+                        <div id="hudTimer" class="text-xs sm:text-sm font-bold text-slate-800 font-mono">00:00</div>
+                    </div>
+                </div>
+                <div class="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-600"></i>
+                    <div>
+                        <div class="text-[10px] text-emerald-600 font-semibold uppercase">Câu đúng</div>
+                        <div id="hudCorrectCount" class="text-xs sm:text-sm font-bold text-emerald-800">0</div>
+                    </div>
+                </div>
+                <div class="px-3 py-1.5 rounded-xl bg-rose-50 border border-rose-200 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-xmark text-rose-500"></i>
+                    <div>
+                        <div class="text-[10px] text-rose-500 font-semibold uppercase">Sai</div>
+                        <div id="hudWrongCount" class="text-xs sm:text-sm font-bold text-rose-700">0</div>
+                    </div>
+                </div>
+                <div class="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-2">
+                    <i class="fa-solid fa-puzzle-piece text-amber-500"></i>
+                    <div>
+                        <div class="text-[10px] text-amber-600 font-semibold uppercase">Giải mã</div>
+                        <div id="hudRevealPercent" class="text-xs sm:text-sm font-bold text-amber-800">0%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-1">
+            <div class="lg:col-span-6 edu-card p-5 flex flex-col items-center justify-between bg-gradient-to-b from-white to-teal-50/40">
+                <div class="w-full flex justify-between items-center mb-3">
+                    <span class="text-xs font-bold uppercase tracking-wider text-teal-800 flex items-center gap-1.5"><i class="fa-solid fa-palette text-teal-600"></i> Bức tranh bí mật</span>
+                    <button onclick="toggleGridLines()" id="gridToggleBtn" class="px-2.5 py-1 rounded-lg bg-teal-100/80 hover:bg-teal-200 text-teal-800 text-xs font-semibold transition cursor-pointer"><i class="fa-solid fa-border-all mr-1"></i> Lưới: Bật</button>
+                </div>
+                <div id="canvasWrapper" class="w-full flex-1 flex items-center justify-center my-2 min-h-[280px] sm:min-h-[360px]">
+                    <canvas id="pixelCanvas"></canvas>
+                </div>
+                <div class="w-full mt-3 pt-3 border-t border-teal-100">
+                    <div class="flex justify-between text-xs font-semibold mb-1.5">
+                        <span class="text-slate-600">Tiến độ mở khóa bức tranh</span>
+                        <span id="progressBarText" class="text-teal-700 font-bold">0 / 0 câu hỏi (0%)</span>
+                    </div>
+                    <div class="w-full h-3 bg-slate-200 rounded-full overflow-hidden p-0.5">
+                        <div id="revealProgressBar" class="h-full bg-gradient-to-r from-teal-500 to-emerald-400 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="questionCard" class="lg:col-span-6 edu-card p-6 sm:p-7 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-4">
+                        <span id="questionBadge" class="px-3.5 py-1.5 rounded-xl bg-teal-600 text-white font-bold text-xs sm:text-sm shadow-sm">Câu hỏi 1 / 10</span>
+                        <span id="feedbackBanner" class="hidden px-3.5 py-1.5 rounded-xl font-extrabold text-xs sm:text-sm tracking-wide"></span>
+                    </div>
+                    <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 mb-6 min-h-[110px] flex items-center">
+                        <h3 id="questionText" class="text-base sm:text-lg font-bold text-slate-800 leading-relaxed">Đang tải nội dung câu hỏi...</h3>
+                    </div>
+                    <div id="optionsContainer" class="grid grid-cols-1 gap-3.5"></div>
+                </div>
+                <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                    <span><i class="fa-solid fa-comments text-amber-500 mr-1.5"></i>Các thành viên cùng thảo luận để chọn đáp án!</span>
+                    <span id="regionInfoText" class="font-semibold text-teal-700"></span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- COMPLETION SCREEN -->
+    <section id="completionScreen" class="hidden flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="edu-card p-6 sm:p-10 text-center relative overflow-hidden">
+            <div class="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-teal-500 via-amber-400 to-orange-500"></div>
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-100 text-amber-500 text-3xl mb-4 shadow-sm"><i class="fa-solid fa-trophy"></i></div>
+            <h2 class="text-2xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-emerald-600 tracking-tight">CONGRATULATIONS!</h2>
+            <p class="text-base sm:text-xl font-bold text-amber-500 mt-1 uppercase tracking-wide">YOU HAVE REVEALED THE SECRET PICTURE!</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-8 items-center mt-8 text-left">
+                <div class="md:col-span-6 flex flex-col items-center">
+                    <div class="p-3 bg-gradient-to-br from-teal-100 to-amber-100 rounded-2xl shadow-md">
+                        <canvas id="resultCanvas" class="max-w-full max-h-[340px] rounded-xl"></canvas>
+                    </div>
+                    <span class="text-xs font-semibold text-slate-500 mt-2.5">Tác phẩm Pixel Art đã hoàn thiện 100%</span>
+                </div>
+
+                <div class="md:col-span-6 space-y-4">
+                    <div class="bg-teal-50/70 border border-teal-100 rounded-2xl p-5 space-y-3">
+                        <h3 class="font-bold text-teal-900 text-base border-b border-teal-200/70 pb-2 flex items-center gap-2"><i class="fa-solid fa-chart-pie text-teal-600"></i> BÁO CÁO KẾT QUẢ NHÓM</h3>
+                        <div class="grid grid-cols-2 gap-y-3 text-sm">
+                            <div class="text-slate-500">Tên nhóm:</div>
+                            <div id="resPlayerName" class="font-bold text-slate-800 text-right">-</div>
+                            <div class="text-slate-500">Lớp:</div>
+                            <div id="resPlayerClass" class="font-bold text-slate-800 text-right">-</div>
+                            <div class="text-slate-500">Tên bài học:</div>
+                            <div id="resLessonName" class="font-bold text-teal-800 text-right">-</div>
+                            <div class="text-slate-500">Số câu đúng ngay lần đầu:</div>
+                            <div id="resFirstTryCorrect" class="font-bold text-emerald-600 text-right">0</div>
+                            <div class="text-slate-500">Tổng số câu:</div>
+                            <div id="resTotalQuestions" class="font-bold text-slate-800 text-right">0</div>
+                            <div class="text-slate-500">Thời gian:</div>
+                            <div id="resTimeTaken" class="font-bold text-teal-700 font-mono text-right">00:00</div>
+                            <div class="text-slate-500">Tỉ lệ chính xác:</div>
+                            <div id="resAccuracy" class="font-extrabold text-amber-600 text-right text-base">100%</div>
+                        </div>
+                    </div>
+
+                    <div id="sheetsSyncStatus" class="hidden p-3 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 text-center">
+                        <i class="fa-solid fa-cloud-arrow-up mr-1"></i> <span id="sheetsSyncText">Đang gửi kết quả về Google Sheets...</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 no-print">
+                        <button onclick="downloadResultImage()" class="py-2.5 px-4 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs sm:text-sm border border-teal-200 flex items-center justify-center gap-2 transition cursor-pointer"><i class="fa-solid fa-download"></i> Tải ảnh</button>
+                        <button onclick="window.print()" class="py-2.5 px-4 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs sm:text-sm border border-amber-200 flex items-center justify-center gap-2 transition cursor-pointer"><i class="fa-solid fa-print"></i> In báo cáo</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 pt-6 border-t border-slate-100 flex flex-wrap justify-center gap-4 no-print">
+                <button onclick="replayCurrentGame()" class="px-6 py-3.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm shadow-lg flex items-center gap-2 transition cursor-pointer"><i class="fa-solid fa-rotate-right"></i> CHƠI LẠI</button>
+                <button onclick="location.href = location.pathname;" class="px-6 py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm flex items-center gap-2 transition cursor-pointer"><i class="fa-solid fa-house"></i> VỀ TRANG CHỦ</button>
+            </div>
+        </div>
+    </section>
+
+    <footer class="py-4 text-center text-xs text-slate-400 no-print relative z-10">
+        <p>GIẢI MÃ PIXEL – TÔ MÀU BỨC TRANH • Nền tảng học tập tương tác số</p>
+    </footer>
+
+    <!-- JAVASCRIPT -->
+    <script>
+        const AppState = {
+            role: 'TEACHER',
+            playerName: '',
+            playerClass: '',
+            lessonName: '',
+            resolution: 45,
+            uploadedImage: null,
+            pixelGridColors: [],
+            questions: [],
+            parseWarnings: [],
+            docxFileName: '',
+            isDemoMode: false,
+            isPlaying: false,
+            showGrid: true,
+            soundEnabled: true,
+            currentQuestionIndex: 0,
+            correctCount: 0,
+            firstTryCorrectCount: 0,
+            currentQuestionWrong: false,
+            wrongAttempts: 0,
+            startTime: null,
+            timerInterval: null,
+            elapsedSeconds: 0,
+            currentSubmissionId: '',
+            isResultSubmitted: false,
+            latestResultRecord: null,
+            regions: [],
+            unlockedMask: [],
+            newlyUnlockedSet: new Set(),
+            currentGameId: '',
+            gasWebAppUrl: 'https://script.google.com/macros/s/AKfycbx37wooCPyiret69mUgNcnBxLi_unzI_HjWMp06AmuSDk5A1owyvH2dCiXh3VHhFW0/exec'
+        };
+
+        const SoundFX = {
+            ctx: null,
+            init() { if (!this.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) this.ctx = new AC(); } if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+            playCorrect() {
+                if (!AppState.soundEnabled) return;
+                try {
+                    this.init();
+                    const now = this.ctx.currentTime;
+                    [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                        gain.gain.setValueAtTime(0.18, now + idx * 0.08);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.35);
+                        osc.connect(gain); gain.connect(this.ctx.destination);
+                        osc.start(now + idx * 0.08); osc.stop(now + idx * 0.08 + 0.35);
+                    });
+                } catch (e) {}
+            },
+            playWrong() {
+                if (!AppState.soundEnabled) return;
+                try {
+                    this.init();
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.frequency.setValueAtTime(240, now);
+                    osc.frequency.linearRampToValueAtTime(180, now + 0.25);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(now); osc.stop(now + 0.28);
+                } catch (e) {}
+            },
+            playVictory() {
+                if (!AppState.soundEnabled) return;
+                try {
+                    this.init();
+                    const now = this.ctx.currentTime;
+                    [523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50].forEach((freq, i) => {
+                        const times = [0, 0.12, 0.24, 0.36, 0.52, 0.66];
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.frequency.setValueAtTime(freq, now + times[i]);
+                        gain.gain.setValueAtTime(0.22, now + times[i]);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + times[i] + 0.45);
+                        osc.connect(gain); gain.connect(this.ctx.destination);
+                        osc.start(now + times[i]); osc.stop(now + times[i] + 0.45);
+                    });
+                } catch (e) {}
+            }
+        };
+
+        function toggleSound() {
+            AppState.soundEnabled = !AppState.soundEnabled;
+            const icon = document.getElementById('soundIcon');
+            const btn = document.getElementById('soundToggleBtn');
+            if (AppState.soundEnabled) {
+                icon.className = 'fa-solid fa-volume-high';
+                btn.innerHTML = `<i id="soundIcon" class="fa-solid fa-volume-high"></i><span class="hidden md:inline">Âm thanh: Bật</span>`;
+            } else {
+                btn.innerHTML = `<i id="soundIcon" class="fa-solid fa-volume-xmark"></i><span class="hidden md:inline">Âm thanh: Tắt</span>`;
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const styles = {
+                success: 'bg-emerald-600 text-white border-emerald-500',
+                error: 'bg-rose-600 text-white border-rose-500',
+                warning: 'bg-amber-500 text-white border-amber-400',
+                info: 'bg-teal-700 text-white border-teal-600'
+            };
+            const icons = { success: 'fa-circle-check', error: 'fa-circle-exclamation', warning: 'fa-triangle-exclamation', info: 'fa-circle-info' };
+            toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl border ${styles[type] || styles.info} text-sm font-medium`;
+            toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info} text-lg shrink-0"></i><span class="flex-1 leading-snug">${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3800);
+        }
+
+        let confirmCallback = null;
+        function showConfirmModal(title, message, onConfirm) {
+            document.getElementById('confirmTitle').textContent = title;
+            document.getElementById('confirmMessage').textContent = message;
+            confirmCallback = onConfirm;
+            const modal = document.getElementById('confirmModal');
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+        }
+        document.getElementById('confirmCancelBtn').onclick = () => { document.getElementById('confirmModal').classList.add('hidden'); };
+        document.getElementById('confirmOkBtn').onclick = () => { document.getElementById('confirmModal').classList.add('hidden'); if (confirmCallback) confirmCallback(); };
+
+        // Xử lý ảnh mẫu
+        const imageFileInput = document.getElementById('imageFileInput');
+        imageFileInput.addEventListener('change', e => { if (e.target.files && e.target.files[0]) handleImageUpload(e.target.files[0]); });
+
+        function handleImageUpload(file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    AppState.uploadedImage = img;
+                    document.getElementById('originalImagePreview').src = event.target.result;
+                    document.getElementById('imageFileName').textContent = file.name;
+                    document.getElementById('imagePreviewContainer').classList.remove('hidden');
+                    document.getElementById('imageDropZone').classList.add('hidden');
+                    processImageToPixelPreview();
+                    validateSetupForm();
+                    showToast('Đã tải ảnh mẫu thành công!', 'success');
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeUploadedImage() {
+            AppState.uploadedImage = null;
+            AppState.pixelGridColors = [];
+            imageFileInput.value = '';
+            document.getElementById('imagePreviewContainer').classList.add('hidden');
+            document.getElementById('imageDropZone').classList.remove('hidden');
+            validateSetupForm();
+        }
+
+        function extractPixelGridFromImage(img, resolution) {
+            const offCanvas = document.createElement('canvas');
+            offCanvas.width = resolution; offCanvas.height = resolution;
+            const ctx = offCanvas.getContext('2d');
+            ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, resolution, resolution);
+            const scale = Math.min(resolution / img.width, resolution / img.height);
+            const drawW = Math.round(img.width * scale), drawH = Math.round(img.height * scale);
+            const offsetX = Math.floor((resolution - drawW) / 2), offsetY = Math.floor((resolution - drawH) / 2);
+            ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
+            const imgData = ctx.getImageData(0, 0, resolution, resolution).data;
+            const grid = [];
+            for (let r = 0; r < resolution; r++) {
+                const rowColors = [];
+                for (let c = 0; c < resolution; c++) {
+                    const idx = (r * resolution + c) * 4;
+                    rowColors.push(imgData[idx + 3] < 128 ? '#FFFFFF' : `rgb(${imgData[idx]}, ${imgData[idx+1]}, ${imgData[idx+2]})`);
+                }
+                grid.push(rowColors);
+            }
+            return grid;
+        }
+
+        function processImageToPixelPreview() {
+            if (!AppState.uploadedImage) return;
+            const res = AppState.resolution;
+            document.getElementById('previewResLabel').textContent = `${res}×${res}`;
+            const grid = extractPixelGridFromImage(AppState.uploadedImage, res);
+            AppState.pixelGridColors = grid;
+            const previewCanvas = document.getElementById('previewPixelCanvas');
+            previewCanvas.width = 240; previewCanvas.height = 240;
+            const ctx = previewCanvas.getContext('2d');
+            const cellSize = 240 / res;
+            for (let r = 0; r < res; r++) {
+                for (let c = 0; c < res; c++) {
+                    ctx.fillStyle = grid[r][c];
+                    ctx.fillRect(c * cellSize, r * cellSize, Math.ceil(cellSize), Math.ceil(cellSize));
+                }
+            }
+        }
+
+        document.querySelectorAll('.res-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.res-btn').forEach(b => b.className = 'res-btn p-2.5 rounded-xl border border-slate-200 bg-white hover:border-teal-400 text-center transition');
+                btn.className = 'res-btn active p-2.5 rounded-xl border-2 border-teal-600 bg-teal-600 text-white text-center shadow-md transition';
+                AppState.resolution = parseInt(btn.dataset.res, 10);
+                if (AppState.uploadedImage) processImageToPixelPreview();
+            });
+        });
+
+        // Đọc tệp Word (.docx)
+        const docxFileInput = document.getElementById('docxFileInput');
+        docxFileInput.addEventListener('change', e => { if (e.target.files && e.target.files[0]) handleDocxUpload(e.target.files[0]); });
+
+        async function handleDocxUpload(file) {
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                const parsed = parseQuestionsFromText(result.value);
+                AppState.questions = parsed.validQuestions;
+                AppState.docxFileName = file.name;
+                document.getElementById('docxFileName').textContent = file.name;
+                document.getElementById('docxStatusContainer').classList.remove('hidden');
+                document.getElementById('docxDropZone').classList.add('hidden');
+                document.getElementById('docxQuestionCountText').textContent = `Nhận diện thành công: ${parsed.validQuestions.length} câu`;
+                validateSetupForm();
+                showToast(`Đọc thành công ${parsed.validQuestions.length} câu hỏi từ Word!`, 'success');
+            } catch (err) {
+                showToast('Lỗi đọc file Word.', 'error');
+            }
+        }
+
+        function parseQuestionsFromText(text) {
+            const rawLines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+            const validQuestions = [];
+            let currentQ = null;
+            const qRegex = /^(?:Câu|Bài|Question)\s*(\d+)\s*[\.\:\-\)]\s*(.+)$/i;
+            const optRegex = /^([A-Da-d])\s*[\.\)\:\-]\s*(.+)$/;
+            const ansRegex = /^(?:Đáp\s*án(?:\s*đúng)?|Answer)\s*[\:\-\.]?\s*([A-Da-d])\b/i;
+
+            rawLines.forEach(line => {
+                const qMatch = line.match(qRegex);
+                if (qMatch) {
+                    if (currentQ && currentQ.answer) validQuestions.push(currentQ);
+                    currentQ = { number: qMatch[1], text: qMatch[2].trim(), options: {}, answer: null };
+                    return;
+                }
+                if (!currentQ) return;
+                const ansMatch = line.match(ansRegex);
+                if (ansMatch) { currentQ.answer = ansMatch[1].toUpperCase(); return; }
+                const optMatch = line.match(optRegex);
+                if (optMatch) { currentQ.options[optMatch[1].toUpperCase()] = optMatch[2].trim(); return; }
+                if (!currentQ.answer && Object.keys(currentQ.options).length === 0) currentQ.text += ' ' + line;
+            });
+            if (currentQ && currentQ.answer) validQuestions.push(currentQ);
+            return { validQuestions, warnings: [] };
+        }
+
+        function removeUploadedDocx() {
+            AppState.questions = [];
+            docxFileInput.value = '';
+            document.getElementById('docxStatusContainer').classList.add('hidden');
+            document.getElementById('docxDropZone').classList.remove('hidden');
+            validateSetupForm();
+        }
+
+        function openQuestionsModal() {
+            const listEl = document.getElementById('modalQuestionsList');
+            listEl.innerHTML = AppState.questions.map((q, idx) => `
+                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                    <div class="font-bold text-slate-800 text-xs">Câu ${q.number || idx+1}: ${escapeHTML(q.text)}</div>
+                    <div class="grid grid-cols-2 gap-1 text-[11px]">
+                        ${['A','B','C','D'].map(opt => `<div class="${q.answer===opt?'font-bold text-emerald-700 bg-emerald-50':''} p-1 rounded">${opt}. ${escapeHTML(q.options[opt]||'')}</div>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('questionsPreviewModal').classList.remove('hidden');
+            document.getElementById('questionsPreviewModal').classList.add('flex');
+        }
+        function closeQuestionsModal() { document.getElementById('questionsPreviewModal').classList.add('hidden'); }
+
+        const lessonNameInput = document.getElementById('lessonNameInput');
+        const playerClassInput = document.getElementById('playerClassInput');
+        const publishGameBtn = document.getElementById('publishGameBtn');
+
+        lessonNameInput.addEventListener('input', validateSetupForm);
+        playerClassInput.addEventListener('input', validateSetupForm);
+
+        function validateSetupForm() {
+            const valid = lessonNameInput.value.trim() && playerClassInput.value.trim() && AppState.uploadedImage && AppState.questions.length > 0;
+            publishGameBtn.disabled = !valid;
+        }
+
+        function rgbStringToHex(rgbStr) {
+            if (!rgbStr || rgbStr.startsWith('#')) return rgbStr || '#ffffff';
+            const m = rgbStr.match(/\d+/g);
+            return m ? '#' + m.slice(0,3).map(x => parseInt(x).toString(16).padStart(2,'0')).join('') : '#ffffff';
+        }
+
+        function encodePixelColorsRLE(grid) {
+            const flat = [];
+            grid.forEach(row => row.forEach(col => flat.push(rgbStringToHex(col).replace('#',''))));
+            const chunks = [];
+            let i = 0;
+            while (i < flat.length) {
+                const color = flat[i];
+                let count = 1;
+                while (i + count < flat.length && flat[i + count] === color) count++;
+                chunks.push(count > 1 ? `${color}*${count.toString(36)}` : color);
+                i += count;
+            }
+            return chunks.join(',');
+        }
+
+        // XUẤT BẢN LÊN MÁY CHỦ GOOGLE APPS SCRIPT
+        async function publishGameToServer() {
+            if (!lessonNameInput.value.trim() || !playerClassInput.value.trim() || !AppState.uploadedImage || AppState.questions.length === 0) {
+                showToast('Vui lòng điền đầy đủ thông tin, ảnh và file câu hỏi!', 'warning');
+                return;
+            }
+
+            publishGameBtn.disabled = true;
+            publishGameBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ĐANG LƯU & XUẤT BẢN...';
+
+            const res = AppState.resolution;
+            const grid = extractPixelGridFromImage(AppState.uploadedImage, res);
+            const rleColors = encodePixelColorsRLE(grid);
+
+            const payloadData = {
+                resolution: res,
+                rleColors: rleColors,
+                questions: AppState.questions
+            };
+
+            try {
+                const response = await fetch(AppState.gasWebAppUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'publishGame',
+                        role: 'TEACHER',
+                        lessonName: lessonNameInput.value.trim(),
+                        className: playerClassInput.value.trim(),
+                        gameData: payloadData
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Máy chủ phản hồi mã lỗi HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (result && result.status === 'success' && result.gameId && String(result.gameId).trim() !== 'undefined') {
+                    const cleanGameId = String(result.gameId).trim();
+                    AppState.currentGameId = cleanGameId;
+                    showToast(`Xuất bản thành công! Game ID: ${cleanGameId}`, 'success');
+                    showPublishSuccessModal(cleanGameId);
+                    loadTeacherGamesList();
+                } else {
+                    const errMsg = (result && result.message) ? result.message : 'Máy chủ không trả về mã Game ID hợp lệ. Vui lòng kiểm tra lại triển khai Google Apps Script.';
+                    showToast(errMsg, 'error');
+                }
+            } catch (err) {
+                showToast('Xuất bản thất bại: Không thể lưu dữ liệu lên máy chủ (' + err.message + ')', 'error');
+            } finally {
+                publishGameBtn.disabled = false;
+                publishGameBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> XUẤT BẢN TRÒ CHƠI';
+            }
+        }
+
+        function getValidHttpsBaseUrl() {
+            const savedDomain = localStorage.getItem('pixel_quiz_https_base_url');
+            if (savedDomain && savedDomain.startsWith('https://')) {
+                return savedDomain.split('#')[0].split('?')[0];
+            }
+            const currentHref = window.location.href.split('#')[0].split('?')[0];
+            if (currentHref.startsWith('https://') && !currentHref.includes('srcdoc') && !currentHref.includes('googleusercontent.com/scf')) {
+                return currentHref;
+            }
+            return '';
+        }
+
+        function renderStudentLinkAndQr(gameId, baseUrl) {
+            const linkInput = document.getElementById('publishedLinkOutput');
+            const qrContainer = document.getElementById('publishedQrContainer');
+            const testBtn = document.getElementById('openTestStudentLinkBtn');
+            qrContainer.innerHTML = '';
+
+            if (!baseUrl || !baseUrl.startsWith('https://')) {
+                linkInput.value = '';
+                linkInput.placeholder = 'Cần triển khai website HTTPS trước khi tạo link học sinh!';
+                testBtn.disabled = true;
+                testBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                qrContainer.innerHTML = '<div class="w-[100px] h-[100px] flex items-center justify-center text-[10px] text-center text-rose-600 font-bold p-2">Chưa có link HTTPS</div>';
+                return;
+            }
+
+            const separator = baseUrl.includes('?') ? '&' : '?';
+            const studentUrl = `${baseUrl}${separator}gameId=${encodeURIComponent(gameId)}`;
+            linkInput.value = studentUrl;
+            testBtn.disabled = false;
+            testBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+
+            try {
+                new QRCode(qrContainer, {
+                    text: studentUrl,
+                    width: 100,
+                    height: 100,
+                    colorDark: '#0f766e',
+                    colorLight: '#ffffff'
+                });
+            } catch (e) {}
+        }
+
+        function applyCustomHttpsDomain() {
+            const rawUrl = document.getElementById('customHttpsDomainInput').value.trim();
+            if (!rawUrl.startsWith('https://')) {
+                showToast('Vui lòng nhập đường dẫn website bắt đầu bằng https://', 'warning');
+                return;
+            }
+            const cleanUrl = rawUrl.split('#')[0].split('?')[0];
+            localStorage.setItem('pixel_quiz_https_base_url', cleanUrl);
+            const gameId = document.getElementById('publishedGameIdOutput').value;
+            renderStudentLinkAndQr(gameId, cleanUrl);
+            showToast('Đã cập nhật link HTTPS và mã QR cho học sinh!', 'success');
+        }
+
+        function showPublishSuccessModal(gameId) {
+            document.getElementById('publishedGameIdOutput').value = gameId;
+            const validHttpsUrl = getValidHttpsBaseUrl();
+            const domainBox = document.getElementById('domainConfigBox');
+
+            if (!validHttpsUrl) {
+                domainBox.classList.remove('hidden');
+                const saved = localStorage.getItem('pixel_quiz_https_base_url') || '';
+                document.getElementById('customHttpsDomainInput').value = saved;
+                showToast('Cảnh báo: Cần triển khai HTML lên website HTTPS (GitHub Pages/Firebase) để tạo link gửi học sinh!', 'warning');
+            } else {
+                domainBox.classList.add('hidden');
+            }
+
+            renderStudentLinkAndQr(gameId, validHttpsUrl);
+
+            const modal = document.getElementById('publishSuccessModal');
+            modal.classList.remove('hidden'); modal.classList.add('flex');
+        }
+
+        function closePublishModal() { document.getElementById('publishSuccessModal').classList.add('hidden'); }
+        function copyPublishedGameId() { navigator.clipboard.writeText(document.getElementById('publishedGameIdOutput').value); showToast('Đã copy mã game!', 'success'); }
+        function copyPublishedLink() {
+            const linkVal = document.getElementById('publishedLinkOutput').value;
+            if (!linkVal || !linkVal.startsWith('https://')) {
+                showToast('Chưa có link HTTPS hợp lệ để sao chép! Vui lòng triển khai website trước.', 'warning');
+                return;
+            }
+            navigator.clipboard.writeText(linkVal);
+            showToast('Đã copy link học sinh!', 'success');
+        }
+        function openTestStudentLink() {
+            const linkVal = document.getElementById('publishedLinkOutput').value;
+            if (!linkVal || !linkVal.startsWith('https://')) {
+                showToast('Cần triển khai website HTTPS trước khi mở thử link học sinh.', 'warning');
+                return;
+            }
+            window.open(linkVal, '_blank');
+        }
+
+        // Thư viện trò chơi của giáo viên
+        async function loadTeacherGamesList() {
+            const container = document.getElementById('teacherGamesLibraryList');
+            try {
+                const res = await fetch(AppState.gasWebAppUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'getTeacherGames' })
+                });
+                const data = await res.json();
+                if (data.status === 'success' && data.games.length > 0) {
+                    container.innerHTML = data.games.map(g => `
+                        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2">
+                            <div>
+                                <div class="font-bold text-xs text-slate-800">${escapeHTML(g.lessonName)} <span class="text-teal-700 font-mono">(${g.gameId})</span></div>
+                                <div class="text-[10px] text-slate-500">${escapeHTML(g.className)} • Ngày: ${g.createdAt} • Trạng thái: <b class="${g.status==='ACTIVE'?'text-emerald-600':'text-rose-600'}">${g.status}</b></div>
+                            </div>
+                            <div class="flex gap-1">
+                                <button onclick="showPublishSuccessModal('${g.gameId}')" class="p-2 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-100 text-xs cursor-pointer" title="Lấy Link & Mã QR"><i class="fa-solid fa-qrcode"></i></button>
+                                <button onclick="toggleGameStatus('${g.gameId}')" class="p-2 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 text-xs cursor-pointer" title="Đóng/Mở lượt chơi"><i class="fa-solid fa-power-off"></i></button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = `<div class="text-center py-6 text-xs text-slate-400">Chưa có trò chơi nào được xuất bản.</div>`;
+                }
+            } catch (e) {
+                container.innerHTML = `<div class="text-center py-6 text-xs text-rose-500">Không thể tải thư viện trò chơi.</div>`;
+            }
+        }
+
+        async function toggleGameStatus(gameId) {
+            try {
+                const res = await fetch(AppState.gasWebAppUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'toggleGameStatus', role: 'TEACHER', gameId: gameId })
+                });
+                const result = await res.json();
+                if (result.status === 'success') {
+                    loadTeacherGamesList();
+                    showToast(result.message || 'Đã đổi trạng thái trò chơi!', 'success');
+                } else {
+                    showToast(result.message || 'Lỗi cập nhật trạng thái.', 'error');
+                }
+            } catch (e) { showToast('Lỗi kết nối máy chủ.', 'error'); }
+        }
+
+        // TẢI TRÒ CHƠI CHO HỌC SINH TỪ MÁY CHỦ
+        async function checkStudentGameParamOnLoad() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const gameId = urlParams.get('gameId');
+            if (!gameId) return false;
+
+            try {
+                const res = await fetch(AppState.gasWebAppUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'getStudentGame', gameId: gameId })
+                });
+                const result = await res.json();
+                if (result.status === 'closed') {
+                    document.body.innerHTML = `<div class="min-h-screen flex items-center justify-center p-4 text-center"><div class="edu-card p-8 max-w-md"><h2 class="text-xl font-bold text-rose-600 mb-2">Trò chơi đã kết thúc</h2><p class="text-sm text-slate-600">${result.message}</p></div></div>`;
+                    return true;
+                }
+                if (result.status === 'not_found') {
+                    document.body.innerHTML = `<div class="min-h-screen flex items-center justify-center p-4 text-center"><div class="edu-card p-8 max-w-md"><h2 class="text-xl font-bold text-rose-600 mb-2">Không tìm thấy trò chơi.</h2><p class="text-sm text-slate-600">Mã trò chơi không tồn tại hoặc đường dẫn không chính xác.</p></div></div>`;
+                    return true;
+                }
+                if (result.status === 'success') {
+                    const g = result.game;
+                    AppState.role = 'STUDENT';
+                    AppState.currentGameId = g.gameId;
+                    AppState.lessonName = g.lessonName;
+                    AppState.resolution = g.resolution;
+                    AppState.questions = g.questions;
+
+                    const grid = [];
+                    const parts = g.rleColors.split(',');
+                    const flat = [];
+                    parts.forEach(part => {
+                        if (part.includes('*')) {
+                            const [col, count36] = part.split('*');
+                            const count = parseInt(count36, 36);
+                            for (let k = 0; k < count; k++) flat.push('#' + col);
+                        } else if (part.length === 6) {
+                            flat.push('#' + part);
+                        }
+                    });
+                    for (let r = 0; r < g.resolution; r++) {
+                        const row = [];
+                        for (let c = 0; c < g.resolution; c++) row.push(flat[r * g.resolution + c] || '#FFFFFF');
+                        grid.push(row);
+                    }
+                    AppState.pixelGridColors = grid;
+
+                    document.getElementById('setupScreen').remove();
+                    document.getElementById('studentGameTitle').textContent = g.lessonName;
+                    document.getElementById('studentLessonBadge').textContent = `Lớp: ${g.className}`;
+                    document.getElementById('studentJoinScreen').classList.remove('hidden');
+                    document.getElementById('studentJoinScreen').classList.add('flex');
+                    return true;
+                }
+            } catch (e) {
+                showToast('Lỗi tải dữ liệu trò chơi từ máy chủ.', 'error');
+            }
+            return false;
+        }
+
+        function startStudentAssignedGame() {
+            const name = document.getElementById('studentJoinName').value.trim();
+            const cls = document.getElementById('studentJoinClass').value.trim();
+            if (!name || !cls) { showToast('Vui lòng nhập đầy đủ Tên nhóm và Lớp!', 'warning'); return; }
+            AppState.playerName = name;
+            AppState.playerClass = cls;
+            document.getElementById('studentJoinScreen').classList.add('hidden');
+            document.getElementById('studentJoinScreen').classList.remove('flex');
+            initializeGameSession();
+        }
+
+        function generateSampleArtImage() {
+            const c = document.createElement('canvas'); c.width = 300; c.height = 300;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#0284c7'; ctx.fillRect(0, 0, 300, 190);
+            ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.arc(225, 65, 36, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#16a34a'; ctx.fillRect(0, 185, 300, 115);
+            const img = new Image(); img.src = c.toDataURL('image/png');
+            return img;
+        }
+
+        function startDemoGame() {
+            const sampleImg = generateSampleArtImage();
+            sampleImg.onload = function() {
+                AppState.isDemoMode = true;
+                AppState.playerName = 'Nhóm Thử Nghiệm';
+                AppState.playerClass = 'Lớp Mẫu';
+                AppState.lessonName = 'Bài Mẫu Sinh Học';
+                AppState.resolution = 30;
+                AppState.pixelGridColors = extractPixelGridFromImage(sampleImg, 30);
+                AppState.questions = [
+                    { number: '1', text: 'Nguyên tố hóa học nào có ký hiệu là H?', options: { A: 'Heli', B: 'Hydro', C: 'Oxy', D: 'Nitơ' } },
+                    { number: '2', text: 'Bào quan nào là nhà máy năng lượng của tế bào?', options: { A: 'Ti thể', B: 'Lục lạp', C: 'Ribosome', D: 'Golgi' } }
+                ];
+                // Gán tạm đáp án demo
+                AppState.questions[0].answer = 'B';
+                AppState.questions[1].answer = 'A';
+                initializeGameSession();
+                showToast('Chế độ chơi thử mẫu!', 'info');
+            };
+        }
+
+        function initializeGameSession() {
+            SoundFX.init();
+            AppState.isPlaying = true;
+            AppState.currentQuestionIndex = 0;
+            AppState.correctCount = 0;
+            AppState.firstTryCorrectCount = 0;
+            AppState.wrongAttempts = 0;
+            AppState.elapsedSeconds = 0;
+            AppState.newlyUnlockedSet.clear();
+            AppState.currentSubmissionId = 'SUB-' + Date.now() + Math.random().toString(36).substring(2,7);
+            AppState.isResultSubmitted = false;
+
+            const res = AppState.resolution;
+            AppState.unlockedMask = Array.from({ length: res }, () => Array(res).fill(false));
+
+            const allCoords = [];
+            for (let r = 0; r < res; r++) for (let c = 0; c < res; c++) allCoords.push({ r, c });
+            allCoords.sort(() => Math.random() - 0.5);
+
+            const totalQ = AppState.questions.length;
+            AppState.regions = Array.from({ length: totalQ }, () => []);
+            allCoords.forEach((coord, idx) => AppState.regions[idx % totalQ].push(coord));
+
+            document.getElementById('hudPlayerName').textContent = AppState.playerName;
+            document.getElementById('hudPlayerClass').textContent = `${AppState.playerClass} • ${AppState.lessonName}`;
+            
+            if (AppState.isDemoMode) document.getElementById('hudDemoBadge').classList.remove('hidden');
+
+            document.getElementById('setupScreen').classList.add('hidden');
+            document.getElementById('completionScreen').classList.add('hidden');
+            document.getElementById('gameScreen').classList.remove('hidden');
+            document.getElementById('gameScreen').classList.add('flex');
+
+            startTimer();
+            updateHUDStats();
+            resizeAndDrawGameCanvas();
+            renderCurrentQuestion();
+        }
+
+        function startTimer() {
+            clearInterval(AppState.timerInterval);
+            AppState.timerInterval = setInterval(() => {
+                AppState.elapsedSeconds++;
+                const mins = Math.floor(AppState.elapsedSeconds / 60).toString().padStart(2, '0');
+                const secs = (AppState.elapsedSeconds % 60).toString().padStart(2, '0');
+                document.getElementById('hudTimer').textContent = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        function updateHUDStats() {
+            const totalQ = AppState.questions.length;
+            const res = AppState.resolution;
+            let unlocked = 0;
+            for (let r = 0; r < res; r++) for (let c = 0; c < res; c++) if (AppState.unlockedMask[r][c]) unlocked++;
+            const percent = Math.round((unlocked / (res * res)) * 100);
+            document.getElementById('hudCorrectCount').textContent = `${AppState.correctCount}/${totalQ}`;
+            document.getElementById('hudWrongCount').textContent = AppState.wrongAttempts;
+            document.getElementById('hudRevealPercent').textContent = `${percent}%`;
+            document.getElementById('progressBarText').textContent = `${AppState.correctCount} / ${totalQ} câu (${percent}%)`;
+            document.getElementById('revealProgressBar').style.width = `${percent}%`;
+        }
+
+        function resizeAndDrawGameCanvas() {
+            const wrapper = document.getElementById('canvasWrapper');
+            const canvas = document.getElementById('pixelCanvas');
+            if (!wrapper || !canvas || !AppState.isPlaying) return;
+            const size = Math.max(240, Math.min(wrapper.clientWidth - 16, 420));
+            canvas.width = size; canvas.height = size;
+            drawPixelBoard(canvas, false);
+        }
+
+        window.addEventListener('resize', () => { if (AppState.isPlaying) resizeAndDrawGameCanvas(); });
+        function toggleGridLines() { AppState.showGrid = !AppState.showGrid; resizeAndDrawGameCanvas(); }
+
+        function drawPixelBoard(canvas, revealAll = false) {
+            const ctx = canvas.getContext('2d');
+            const res = AppState.resolution;
+            const size = canvas.width;
+            const cellSize = size / res;
+            ctx.clearRect(0, 0, size, size);
+
+            for (let r = 0; r < res; r++) {
+                for (let c = 0; c < res; c++) {
+                    const x = c * cellSize, y = r * cellSize;
+                    if (revealAll || (AppState.unlockedMask[r] && AppState.unlockedMask[r][c])) {
+                        ctx.fillStyle = AppState.pixelGridColors[r][c];
+                        ctx.fillRect(x, y, Math.ceil(cellSize), Math.ceil(cellSize));
+                    } else {
+                        ctx.fillStyle = (r + c) % 2 === 0 ? '#f1f5f9' : '#e2e8f0';
+                        ctx.fillRect(x, y, Math.ceil(cellSize), Math.ceil(cellSize));
+                    }
+                }
+            }
+        }
+
+        function renderCurrentQuestion() {
+            const qIndex = AppState.currentQuestionIndex;
+            const question = AppState.questions[qIndex];
+            // Đặt lại trạng thái sai của câu hiện tại để không ảnh hưởng câu tiếp theo
+            AppState.currentQuestionWrong = false;
+
+            document.getElementById('questionBadge').textContent = `Câu hỏi ${qIndex + 1} / ${AppState.questions.length}`;
+            document.getElementById('questionText').textContent = question.text;
+            document.getElementById('regionInfoText').textContent = `+${AppState.regions[qIndex].length} ô pixel`;
+            document.getElementById('feedbackBanner').classList.add('hidden');
+
+            const container = document.getElementById('optionsContainer');
+            container.innerHTML = '';
+            ['A', 'B', 'C', 'D'].forEach(letter => {
+                if (!question.options[letter]) return;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'w-full text-left p-4 rounded-2xl border-2 border-slate-200 bg-white hover:border-teal-500 hover:bg-teal-50/40 transition flex items-center gap-3.5 group cursor-pointer shadow-sm';
+                btn.innerHTML = `<span class="w-10 h-10 rounded-xl bg-teal-100 text-teal-800 group-hover:bg-teal-600 group-hover:text-white font-extrabold flex items-center justify-center">${letter}</span><span class="text-sm sm:text-base font-semibold text-slate-700 flex-1">${escapeHTML(question.options[letter])}</span>`;
+                btn.onclick = () => handleAnswerSelection(letter, btn);
+                container.appendChild(btn);
+            });
+        }
+
+        async function handleAnswerSelection(selectedLetter, btnElement) {
+            const qIndex = AppState.currentQuestionIndex;
+            const feedback = document.getElementById('feedbackBanner');
+            
+            let isCorrect = false;
+            if (AppState.isDemoMode) {
+                isCorrect = selectedLetter === AppState.questions[qIndex].answer;
+            } else {
+                try {
+                    const res = await fetch(AppState.gasWebAppUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ action: 'checkAnswerServer', gameId: AppState.currentGameId, questionIndex: qIndex, selectedOption: selectedLetter })
+                    });
+                    const data = await res.json();
+                    isCorrect = data.correct;
+                } catch (e) { isCorrect = false; }
+            }
+
+            if (isCorrect) {
+                SoundFX.playCorrect();
+                AppState.correctCount++;
+                if (!AppState.currentQuestionWrong) AppState.firstTryCorrectCount++;
+
+                btnElement.className = 'w-full text-left p-4 rounded-2xl border-2 border-emerald-500 bg-emerald-50 animate-pop flex items-center gap-3.5';
+                feedback.textContent = 'CORRECT! ✨';
+                feedback.className = 'px-3.5 py-1.5 rounded-xl font-extrabold text-xs sm:text-sm bg-emerald-100 text-emerald-700 border border-emerald-300';
+                feedback.classList.remove('hidden');
+
+                const coords = AppState.regions[qIndex] || [];
+                coords.forEach(({ r, c }) => AppState.unlockedMask[r][c] = true);
+                updateHUDStats();
+                drawPixelBoard(document.getElementById('pixelCanvas'), false);
+
+                setTimeout(() => {
+                    if (AppState.currentQuestionIndex + 1 < AppState.questions.length) {
+                        AppState.currentQuestionIndex++;
+                        renderCurrentQuestion();
+                    } else {
+                        completeGame();
+                    }
+                }, 900);
+            } else {
+                SoundFX.playWrong();
+                AppState.currentQuestionWrong = true;
+                AppState.wrongAttempts++;
+                updateHUDStats();
+                btnElement.classList.add('border-rose-400', 'bg-rose-50', 'opacity-75');
+                btnElement.disabled = true;
+                feedback.textContent = 'INCORRECT! TRY AGAIN!';
+                feedback.className = 'px-3.5 py-1.5 rounded-xl font-extrabold text-xs sm:text-sm bg-rose-100 text-rose-700 border border-rose-300';
+                feedback.classList.remove('hidden');
+            }
+        }
+
+        function confirmExitGame() {
+            showConfirmModal('Thoát?', 'Tiến trình sẽ không được lưu. Bạn có chắc chắn muốn thoát?', () => location.href = location.pathname);
+        }
+
+        function completeGame() {
+            clearInterval(AppState.timerInterval);
+            SoundFX.playVictory();
+
+            const res = AppState.resolution;
+            for (let r = 0; r < res; r++) for (let c = 0; c < res; c++) AppState.unlockedMask[r][c] = true;
+
+            const totalQ = AppState.questions.length;
+            const firstTryRight = AppState.firstTryCorrectCount;
+            const accuracy = Math.round((firstTryRight / totalQ) * 100);
+            const mins = Math.floor(AppState.elapsedSeconds / 60).toString().padStart(2, '0');
+            const secs = (AppState.elapsedSeconds % 60).toString().padStart(2, '0');
+            const formattedTime = `${mins}:${secs}`;
+
+            document.getElementById('resPlayerName').textContent = AppState.playerName;
+            document.getElementById('resPlayerClass').textContent = AppState.playerClass;
+            document.getElementById('resLessonName').textContent = AppState.lessonName || 'Bài học Pixel';
+            document.getElementById('resFirstTryCorrect').textContent = `${firstTryRight} / ${totalQ}`;
+            document.getElementById('resTotalQuestions').textContent = `${totalQ} câu`;
+            document.getElementById('resTimeTaken').textContent = formattedTime;
+            document.getElementById('resAccuracy').textContent = `${accuracy}%`;
+
+            document.getElementById('gameScreen').classList.add('hidden');
+            document.getElementById('completionScreen').classList.remove('hidden');
+
+            const resultCanvas = document.getElementById('resultCanvas');
+            resultCanvas.width = 360; resultCanvas.height = 360;
+            drawPixelBoard(resultCanvas, true);
+
+            if (typeof confetti === 'function') confetti({ particleCount: 110, spread: 75, origin: { y: 0.6 } });
+
+            const record = {
+                submissionId: AppState.currentSubmissionId,
+                playerName: AppState.playerName,
+                playerClass: AppState.playerClass,
+                lessonName: AppState.lessonName || 'Luyện tập Pixel',
+                correctCount: firstTryRight,
+                totalQuestions: totalQ,
+                timeFormatted: formattedTime,
+                playedAt: new Date().toLocaleString('vi-VN')
+            };
+            AppState.latestResultRecord = record;
+
+            if (!AppState.isDemoMode) sendResultToGoogleSheets(record);
+        }
+
+        async function sendResultToGoogleSheets(record) {
+            if (AppState.isResultSubmitted) return;
+
+            const statusBox = document.getElementById('sheetsSyncStatus');
+            const statusText = document.getElementById('sheetsSyncText');
+            const retryBtn = document.getElementById('retrySheetsSyncBtn');
+
+            statusBox.className = 'p-3 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 text-center space-y-2';
+            statusBox.classList.remove('hidden');
+            retryBtn.classList.add('hidden');
+            statusText.textContent = 'Đang gửi kết quả và cập nhật xếp hạng lên Google Sheets...';
+
+            try {
+                const response = await fetch(AppState.gasWebAppUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'submitResult',
+                        submissionId: record.submissionId,
+                        timeFormatted: record.timeFormatted,
+                        playerName: record.playerName,
+                        playerClass: record.playerClass,
+                        lessonName: record.lessonName,
+                        correctCount: record.correctCount,
+                        totalQuestions: record.totalQuestions
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (result && (result.status === 'success' || result.status === 'duplicate')) {
+                    AppState.isResultSubmitted = true;
+                    statusBox.className = 'p-3 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 text-center space-y-2';
+                    statusText.textContent = result.message || 'Đã lưu kết quả thành công vào Google Sheets (diem luyen tap)!';
+                    showToast(result.message || 'Đã gửi kết quả thành công!', 'success');
+                } else {
+                    throw new Error((result && result.message) || 'Máy chủ từ chối ghi dữ liệu.');
+                }
+            } catch (e) {
+                AppState.isResultSubmitted = false;
+                statusBox.className = 'p-3 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 text-center space-y-2';
+                statusText.textContent = 'Gửi kết quả thất bại: ' + e.message;
+                retryBtn.classList.remove('hidden');
+                showToast('Gửi kết quả thất bại! Vui lòng bấm "Gửi lại kết quả".', 'error');
+            }
+        }
+
+        function retrySendResultToGoogleSheets() {
+            if (AppState.latestResultRecord) {
+                sendResultToGoogleSheets(AppState.latestResultRecord);
+            }
+        }
+
+        function replayCurrentGame() {
+            document.getElementById('completionScreen').classList.add('hidden');
+            initializeGameSession();
+        }
+
+        function downloadResultImage() {
+            const canvas = document.getElementById('resultCanvas');
+            const link = document.createElement('a');
+            link.download = `PixelArt_${AppState.playerName.replace(/\s+/g, '_')}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function escapeHTML(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // Quản lý Admin Google Sheets
+        let currentAdminAction = 'clear';
+        function openTeacherAdminModal(actionType) {
+            currentAdminAction = actionType || 'clear';
+            document.getElementById('adminModalTitle').textContent = currentAdminAction === 'backup' ? 'Sao lưu kết quả (CSV)' : 'Xác thực xóa bảng xếp hạng';
+            document.getElementById('adminPasswordInput').value = '';
+            document.getElementById('adminStepAuth').classList.remove('hidden');
+            document.getElementById('adminStepFinalConfirm').classList.add('hidden');
+            document.getElementById('teacherAdminModal').classList.remove('hidden');
+            document.getElementById('teacherAdminModal').classList.add('flex');
+        }
+        function closeTeacherAdminModal() { document.getElementById('teacherAdminModal').classList.add('hidden'); }
+
+        async function proceedTeacherAdminStep() {
+            const password = document.getElementById('adminPasswordInput').value;
+            if (!password) {
+                showToast('Vui lòng nhập mật khẩu quản trị!', 'warning');
+                return;
+            }
+            if (currentAdminAction === 'backup') {
+                await downloadBackupCsvFromServer(password);
+                return;
+            }
+            document.getElementById('adminStepAuth').classList.add('hidden');
+            document.getElementById('adminStepFinalConfirm').classList.remove('hidden');
+        }
+
+        async function downloadBackupCsvFromServer(password) {
+            try {
+                const res = await fetch(AppState.gasWebAppUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'exportBackup', adminPassword: password })
+                });
+                const r = await res.json();
+                if (r.status === 'success' && Array.isArray(r.rows)) {
+                    const csvContent = '\uFEFF' + r.rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `SaoLuu_BangXepHang_${new Date().toISOString().slice(0,10)}.csv`;
+                    link.click();
+                    showToast('Đã tải tệp sao lưu CSV thành công!', 'success');
+                    if (currentAdminAction === 'backup') closeTeacherAdminModal();
+                } else {
+                    showToast(r.message || 'Mật khẩu không đúng!', 'error');
+                }
+            } catch (e) {
+                showToast('Lỗi kết nối khi sao lưu dữ liệu.', 'error');
+            }
+        }
+
+        async function executeServerClearResults() {
+            const password = document.getElementById('adminPasswordInput').value;
+            const autoBackup = document.getElementById('autoBackupBeforeClear').checked;
+            const deleteBtn = document.getElementById('adminConfirmDeleteBtn');
+            deleteBtn.disabled = true;
+            deleteBtn.textContent = 'ĐANG XÓA...';
+
+            try {
+                if (autoBackup) {
+                    await downloadBackupCsvFromServer(password);
+                }
+                const res = await fetch(AppState.gasWebAppUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'clearOldResults', role: 'TEACHER', adminPassword: password, confirmed: true })
+                });
+                const r = await res.json();
+                showToast(r.message, r.status === 'success' ? 'success' : 'error');
+                if (r.status === 'success') closeTeacherAdminModal();
+            } catch (e) {
+                showToast('Lỗi kết nối máy chủ.', 'error');
+            } finally {
+                deleteBtn.disabled = false;
+                deleteBtn.textContent = 'XÁC NHẬN XÓA';
+            }
+        }
+        function closeTeacherAdminModal() { document.getElementById('teacherAdminModal').classList.add('hidden'); }
+        function proceedTeacherAdminStep() {
+            document.getElementById('adminStepAuth').classList.add('hidden');
+            document.getElementById('adminStepFinalConfirm').classList.remove('hidden');
+        }
+        async function executeServerClearResults() {
+            const account = document.getElementById('adminAccountInput').value.trim();
+            const password = document.getElementById('adminPasswordInput').value;
+            try {
+                const res = await fetch(AppState.gasWebAppUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'clearOldResults', role: 'TEACHER', adminAccount: account, adminPassword: password, confirmed: true })
+                });
+                const r = await res.json();
+                showToast(r.message, r.status === 'success' ? 'success' : 'error');
+                if (r.status === 'success') closeTeacherAdminModal();
+            } catch (e) { showToast('Lỗi kết nối máy chủ.', 'error'); }
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const loadedFromCloud = await checkStudentGameParamOnLoad();
+            if (!loadedFromCloud) {
+                loadTeacherGamesList();
+            }
+        });
+    </script>
+</body>
+</html>
+```
+eof
+
+---
+
+### Hướng dẫn kiểm thử và vận hành:
+1. **Cập nhật Apps Script:** Dán mã `Code.gs` vào Google Apps Script của bạn và bấm **Triển khai mới** (New deployment) dưới dạng Ứng dụng web (Execute as: Me, Anyone).
+2. **Xuất bản bài học:** Tại giao diện giáo viên, nhập tên bài học (VD: *Bài 18 – Tế bào*), lớp, tải ảnh và file Word câu hỏi, chọn độ phân giải Pixel rồi bấm **XUẤT BẢN TRÒ CHƠI**. Hệ thống sẽ cấp một **Game ID** thực tế (VD: `CEL78K`) và tạo link chuẩn.
+3. **Mở link học sinh:** Khi mở link hoặc quét mã QR trên thiết bị khác, hệ thống sẽ tự động đồng bộ ảnh và câu hỏi từ Google Sheets, học sinh nhập tên nhóm và lớp để bắt đầu chơi. Mọi kết quả tự động ghi nhận vào trang tính `diem luyen tap` của bạn.
