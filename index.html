@@ -620,7 +620,7 @@
 
                     <div id="sheetsSyncStatus" class="hidden p-3 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 text-center space-y-2">
                         <div><i class="fa-solid fa-cloud-arrow-up mr-1"></i> <span id="sheetsSyncText">Đang gửi kết quả về Google Sheets...</span></div>
-                        <button type="button" id="retrySheetsSyncBtn" onclick="retrySendResultToGoogleSheets()" class="hidden px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer">Gửi lại kết quả</button>
+                        <button type="button" id="retrySheetsSyncBtn" onclick="retrySendResultToGoogleSheets()" class="mt-2 px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-sm font-bold cursor-pointer">GỬI KẾT QUẢ LÊN GOOGLE SHEETS</button>
                     </div>
 
                     <div class="grid grid-cols-2 gap-3 no-print">
@@ -1505,18 +1505,28 @@
             if (!AppState.isDemoMode) sendResultToGoogleSheets(record);
         }
 
+        // Ket qua duoc gui tu dong; nut gui thu cong luon san sang neu co loi.
+        let resultSubmissionInFlight = false;
         async function sendResultToGoogleSheets(record) {
-            if (AppState.isResultSubmitted) return;
+            if (!record || AppState.isResultSubmitted || resultSubmissionInFlight) return;
 
             const statusBox = document.getElementById('sheetsSyncStatus');
             const statusText = document.getElementById('sheetsSyncText');
             const retryBtn = document.getElementById('retrySheetsSyncBtn');
+            if (!statusBox || !statusText || !retryBtn) {
+                console.error('Thieu khu vuc thong bao gui diem');
+                return;
+            }
 
+            resultSubmissionInFlight = true;
             statusBox.className = 'p-3 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 text-center space-y-2';
-            statusBox.classList.remove('hidden');
-            retryBtn.classList.add('hidden');
-            statusText.textContent = 'Đang gửi kết quả và cập nhật xếp hạng lên Google Sheets...';
+            statusText.textContent = 'Đang gửi kết quả về Google Sheets...';
+            retryBtn.disabled = true;
+            retryBtn.classList.add('opacity-60','cursor-wait');
+            retryBtn.textContent = 'ĐANG GỬI KẾT QUẢ...';
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000);
             try {
                 const response = await fetch(AppState.gasWebAppUrl, {
                     method: 'POST',
@@ -1530,33 +1540,38 @@
                         lessonName: record.lessonName,
                         correctCount: record.correctCount,
                         totalQuestions: record.totalQuestions
-                    })
+                    }),
+                    signal: controller.signal
                 });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-
+                if (!response.ok) throw new Error('HTTP ' + response.status);
                 const result = await response.json();
-                if (result && (result.status === 'success' || result.status === 'duplicate')) {
-                    AppState.isResultSubmitted = true;
-                    statusBox.className = 'p-3 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 text-center space-y-2';
-                    statusText.textContent = result.message || 'Đã lưu kết quả thành công vào Google Sheets (diem luyen tap)!';
-                    showToast(result.message || 'Đã gửi kết quả thành công!', 'success');
-                } else {
-                    throw new Error((result && result.message) || 'Máy chủ từ chối ghi dữ liệu.');
+                if (!result || !['success','duplicate'].includes(result.status)) {
+                    throw new Error(result && result.message ? result.message : 'Máy chủ chưa xác nhận lưu điểm.');
                 }
-            } catch (e) {
-                AppState.isResultSubmitted = false;
+                AppState.isResultSubmitted = true;
+                statusBox.className = 'p-3 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 text-center space-y-2';
+                statusText.textContent = result.message || 'Đã ghi nhận kết quả vào Google Sheets.';
+                retryBtn.textContent = 'ĐÃ GỬI KẾT QUẢ';
+                retryBtn.disabled = true;
+                retryBtn.classList.add('hidden');
+            } catch (error) {
+                console.error('submitResult failed:', error);
                 statusBox.className = 'p-3 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 text-center space-y-2';
-                statusText.textContent = 'Gửi kết quả thất bại: ' + e.message;
+                statusText.textContent = error.name === 'AbortError'
+                    ? 'Chưa nhận được xác nhận sau 15 giây. Kiểm tra Google Sheets trước khi bấm gửi lại.'
+                    : 'Chưa xác nhận lưu điểm: ' + (error.message || 'Lỗi kết nối.');
+                retryBtn.textContent = 'GỬI LẠI KẾT QUẢ';
+                retryBtn.disabled = false;
                 retryBtn.classList.remove('hidden');
-                showToast('Gửi kết quả thất bại! Vui lòng bấm "Gửi lại kết quả".', 'error');
+            } finally {
+                clearTimeout(timeoutId);
+                resultSubmissionInFlight = false;
+                retryBtn.classList.remove('opacity-60','cursor-wait');
             }
         }
 
         function retrySendResultToGoogleSheets() {
-            if (AppState.latestResultRecord) {
+            if (!AppState.isResultSubmitted && AppState.latestResultRecord) {
                 sendResultToGoogleSheets(AppState.latestResultRecord);
             }
         }
