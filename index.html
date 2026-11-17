@@ -958,56 +958,81 @@
             return chunks.join(',');
         }
 
+        // Hộp thoại xác thực giáo viên dùng chung cho xuất bản/quản trị.
+        // Mật khẩu không được lưu trong localStorage hoặc nhúng cố định trong HTML.
+        function requestTeacherCredentials(titleText = 'Xác thực giáo viên') {
+            return new Promise(resolve => {
+                const old = document.getElementById('teacherCredentialDialog');
+                if (old) old.remove();
+                const dlg = document.createElement('dialog');
+                dlg.id = 'teacherCredentialDialog';
+                dlg.style.cssText = 'border:0;border-radius:18px;padding:0;width:min(420px,calc(100% - 32px));box-shadow:0 20px 60px #0f172a55;';
+                dlg.innerHTML = `
+                  <form method="dialog" style="padding:24px;font-family:inherit;color:#1e293b">
+                    <h3 style="font-size:19px;font-weight:800;margin:0 0 6px;color:#0f766e">${escapeHTML(titleText)}</h3>
+                    <p style="font-size:12px;color:#64748b;margin:0 0 18px">Thông tin được xác thực ở máy chủ, không lưu trong trình duyệt.</p>
+                    <label style="display:block;font-size:12px;font-weight:700;margin:10px 0 5px">Tài khoản giáo viên</label>
+                    <input id="teacherCredentialAccount" autocomplete="username" required style="box-sizing:border-box;width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:10px" placeholder="Tài khoản quản trị">
+                    <label style="display:block;font-size:12px;font-weight:700;margin:12px 0 5px">Mật khẩu</label>
+                    <input id="teacherCredentialPassword" type="password" autocomplete="current-password" required style="box-sizing:border-box;width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:10px" placeholder="Mật khẩu quản trị">
+                    <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:20px">
+                      <button value="cancel" style="padding:10px 16px;border:0;border-radius:9px;background:#f1f5f9;font-weight:700">Hủy</button>
+                      <button id="teacherCredentialSubmit" value="confirm" style="padding:10px 16px;border:0;border-radius:9px;background:#0f766e;color:white;font-weight:700">Tiếp tục</button>
+                    </div>
+                  </form>`;
+                document.body.appendChild(dlg);
+                dlg.addEventListener('close', () => {
+                    const accepted = dlg.returnValue === 'confirm';
+                    const account = dlg.querySelector('#teacherCredentialAccount').value.trim();
+                    const password = dlg.querySelector('#teacherCredentialPassword').value;
+                    dlg.remove();
+                    resolve(accepted && account && password ? {adminAccount:account,adminPassword:password} : null);
+                }, {once:true});
+                dlg.showModal();
+                dlg.querySelector('#teacherCredentialAccount').focus();
+            });
+        }
+
         // XUẤT BẢN LÊN MÁY CHỦ GOOGLE APPS SCRIPT
         async function publishGameToServer() {
             if (!lessonNameInput.value.trim() || !playerClassInput.value.trim() || !AppState.uploadedImage || AppState.questions.length === 0) {
                 showToast('Vui lòng điền đầy đủ thông tin, ảnh và file câu hỏi!', 'warning');
                 return;
             }
+            const credentials = await requestTeacherCredentials('Xác thực giáo viên để xuất bản trò chơi');
+            if (!credentials) { showToast('Đã hủy xuất bản trò chơi.', 'info'); return; }
 
             publishGameBtn.disabled = true;
             publishGameBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ĐANG LƯU & XUẤT BẢN...';
-
-            const res = AppState.resolution;
-            const grid = extractPixelGridFromImage(AppState.uploadedImage, res);
-            const rleColors = encodePixelColorsRLE(grid);
-
-            const payloadData = {
-                resolution: res,
-                rleColors: rleColors,
-                questions: AppState.questions
-            };
-
             try {
+                const res = AppState.resolution;
+                const grid = extractPixelGridFromImage(AppState.uploadedImage, res);
+                const payloadData = { resolution:res, rleColors:encodePixelColorsRLE(grid), questions:AppState.questions };
                 const response = await fetch(AppState.gasWebAppUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({
-                        action: 'publishGame',
-                        role: 'TEACHER',
-                        lessonName: lessonNameInput.value.trim(),
-                        className: playerClassInput.value.trim(),
-                        gameData: payloadData
+                    method:'POST',
+                    headers:{'Content-Type':'text/plain;charset=utf-8'},
+                    body:JSON.stringify({
+                        action:'publishGame', role:'TEACHER',
+                        adminAccount:credentials.adminAccount,
+                        adminPassword:credentials.adminPassword,
+                        lessonName:lessonNameInput.value.trim(),
+                        className:playerClassInput.value.trim(),
+                        gameData:payloadData
                     })
                 });
-
-                if (!response.ok) {
-                    throw new Error(`Máy chủ phản hồi mã lỗi HTTP ${response.status}`);
-                }
-
+                if (!response.ok) throw new Error('Máy chủ phản hồi HTTP ' + response.status);
                 const result = await response.json();
-                if (result && result.status === 'success' && result.gameId && String(result.gameId).trim() !== 'undefined') {
+                if (result && result.status === 'success' && /^[A-Z0-9_-]{4,40}$/i.test(String(result.gameId || ''))) {
                     const cleanGameId = String(result.gameId).trim();
                     AppState.currentGameId = cleanGameId;
-                    showToast(`Xuất bản thành công! Game ID: ${cleanGameId}`, 'success');
+                    showToast('Xuất bản thành công! Game ID: ' + cleanGameId, 'success');
                     showPublishSuccessModal(cleanGameId);
                     loadTeacherGamesList();
                 } else {
-                    const errMsg = (result && result.message) ? result.message : 'Máy chủ không trả về mã Game ID hợp lệ. Vui lòng kiểm tra lại triển khai Google Apps Script.';
-                    showToast(errMsg, 'error');
+                    throw new Error((result && result.message) || 'Máy chủ không trả về Game ID hợp lệ.');
                 }
             } catch (err) {
-                showToast('Xuất bản thất bại: Không thể lưu dữ liệu lên máy chủ (' + err.message + ')', 'error');
+                showToast('Xuất bản thất bại: ' + err.message, 'error');
             } finally {
                 publishGameBtn.disabled = false;
                 publishGameBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> XUẤT BẢN TRÒ CHƠI';
@@ -1143,20 +1168,18 @@
         }
 
         async function toggleGameStatus(gameId) {
+            const credentials = await requestTeacherCredentials('Xác thực giáo viên để đóng/mở trò chơi');
+            if (!credentials) return;
             try {
                 const res = await fetch(AppState.gasWebAppUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: 'toggleGameStatus', role: 'TEACHER', gameId: gameId })
+                    method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+                    body:JSON.stringify({action:'toggleGameStatus',role:'TEACHER',gameId,
+                        adminAccount:credentials.adminAccount,adminPassword:credentials.adminPassword})
                 });
                 const result = await res.json();
-                if (result.status === 'success') {
-                    loadTeacherGamesList();
-                    showToast(result.message || 'Đã đổi trạng thái trò chơi!', 'success');
-                } else {
-                    showToast(result.message || 'Lỗi cập nhật trạng thái.', 'error');
-                }
-            } catch (e) { showToast('Lỗi kết nối máy chủ.', 'error'); }
+                if (result.status === 'success') { loadTeacherGamesList(); showToast(result.message,'success'); }
+                else showToast(result.message || 'Lỗi cập nhật trạng thái.','error');
+            } catch (e) { showToast('Lỗi kết nối máy chủ: '+e.message,'error'); }
         }
 
         // TẢI TRÒ CHƠI CHO HỌC SINH TỪ MÁY CHỦ
@@ -1560,102 +1583,77 @@
             return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
-        // Quản lý Admin Google Sheets
+        // Quản lý Admin Google Sheets: chỉ một bộ hàm, tránh khai báo trùng.
         let currentAdminAction = 'clear';
+        let currentAdminCredentials = null;
         function openTeacherAdminModal(actionType) {
             currentAdminAction = actionType || 'clear';
-            document.getElementById('adminModalTitle').textContent = currentAdminAction === 'backup' ? 'Sao lưu kết quả (CSV)' : 'Xác thực xóa bảng xếp hạng';
+            document.getElementById('adminModalTitle').textContent = currentAdminAction === 'backup' ? 'Sao lưu kết quả (CSV)' : 'Xác thực xóa bảng kết quả';
             document.getElementById('adminPasswordInput').value = '';
             document.getElementById('adminStepAuth').classList.remove('hidden');
             document.getElementById('adminStepFinalConfirm').classList.add('hidden');
             document.getElementById('teacherAdminModal').classList.remove('hidden');
             document.getElementById('teacherAdminModal').classList.add('flex');
         }
-        function closeTeacherAdminModal() { document.getElementById('teacherAdminModal').classList.add('hidden'); }
-
+        function closeTeacherAdminModal() {
+            currentAdminCredentials = null;
+            document.getElementById('teacherAdminModal').classList.add('hidden');
+        }
         async function proceedTeacherAdminStep() {
             const password = document.getElementById('adminPasswordInput').value;
-            if (!password) {
-                showToast('Vui lòng nhập mật khẩu quản trị!', 'warning');
-                return;
-            }
+            if (!password) { showToast('Vui lòng nhập mật khẩu quản trị!', 'warning'); return; }
+            const account = window.prompt('Nhập tài khoản giáo viên quản trị:');
+            if (!account || !account.trim()) { showToast('Đã hủy xác thực giáo viên.', 'info'); return; }
+            const credentials = {adminAccount:account.trim(), adminPassword:password};
+            currentAdminCredentials = credentials;
             if (currentAdminAction === 'backup') {
-                await downloadBackupCsvFromServer(password);
+                await downloadBackupCsvFromServer(credentials);
                 return;
             }
             document.getElementById('adminStepAuth').classList.add('hidden');
             document.getElementById('adminStepFinalConfirm').classList.remove('hidden');
         }
-
-        async function downloadBackupCsvFromServer(password) {
+        async function downloadBackupCsvFromServer(credentials) {
             try {
                 const res = await fetch(AppState.gasWebAppUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: 'exportBackup', adminPassword: password })
+                    method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+                    body:JSON.stringify({action:'exportBackup',role:'TEACHER',adminAccount:credentials.adminAccount,adminPassword:credentials.adminPassword})
                 });
                 const r = await res.json();
-                if (r.status === 'success' && Array.isArray(r.rows)) {
-                    const csvContent = '\uFEFF' + r.rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
-                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                    const link = document.createElement('a');
-                    link.href = URL.createObjectURL(blob);
-                    link.download = `SaoLuu_BangXepHang_${new Date().toISOString().slice(0,10)}.csv`;
-                    link.click();
-                    showToast('Đã tải tệp sao lưu CSV thành công!', 'success');
-                    if (currentAdminAction === 'backup') closeTeacherAdminModal();
-                } else {
-                    showToast(r.message || 'Mật khẩu không đúng!', 'error');
-                }
-            } catch (e) {
-                showToast('Lỗi kết nối khi sao lưu dữ liệu.', 'error');
-            }
+                if (!res.ok || r.status !== 'success' || !Array.isArray(r.rows)) throw new Error(r.message || 'Không thể sao lưu dữ liệu.');
+                const csvContent = '\uFEFF' + r.rows.map(row => row.map(cell => '"' + String(cell).replace(/"/g,'""') + '"').join(',')).join('\n');
+                const blob = new Blob([csvContent], {type:'text/csv;charset=utf-8;'});
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'SaoLuu_KetQua_' + new Date().toISOString().slice(0,10) + '.csv';
+                link.click();
+                setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+                showToast('Đã tải bản sao lưu CSV thành công!','success');
+                if (currentAdminAction === 'backup') closeTeacherAdminModal();
+                return true;
+            } catch (e) { showToast('Sao lưu thất bại: '+e.message,'error'); return false; }
         }
-
         async function executeServerClearResults() {
-            const password = document.getElementById('adminPasswordInput').value;
+            const credentials = currentAdminCredentials;
+            if (!credentials) { showToast('Phiên xác thực không tồn tại. Vui lòng xác thực lại.','warning'); return; }
             const autoBackup = document.getElementById('autoBackupBeforeClear').checked;
             const deleteBtn = document.getElementById('adminConfirmDeleteBtn');
-            deleteBtn.disabled = true;
-            deleteBtn.textContent = 'ĐANG XÓA...';
-
+            deleteBtn.disabled = true; deleteBtn.textContent = 'ĐANG XÓA...';
             try {
                 if (autoBackup) {
-                    await downloadBackupCsvFromServer(password);
+                    const backedUp = await downloadBackupCsvFromServer(credentials);
+                    if (!backedUp) throw new Error('Sao lưu chưa thành công; hệ thống không tiến hành xóa.');
                 }
                 const res = await fetch(AppState.gasWebAppUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: 'clearOldResults', role: 'TEACHER', adminPassword: password, confirmed: true })
+                    method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+                    body:JSON.stringify({action:'clearOldResults',role:'TEACHER',adminAccount:credentials.adminAccount,adminPassword:credentials.adminPassword,confirmed:true})
                 });
                 const r = await res.json();
-                showToast(r.message, r.status === 'success' ? 'success' : 'error');
-                if (r.status === 'success') closeTeacherAdminModal();
-            } catch (e) {
-                showToast('Lỗi kết nối máy chủ.', 'error');
-            } finally {
-                deleteBtn.disabled = false;
-                deleteBtn.textContent = 'XÁC NHẬN XÓA';
-            }
-        }
-        function closeTeacherAdminModal() { document.getElementById('teacherAdminModal').classList.add('hidden'); }
-        function proceedTeacherAdminStep() {
-            document.getElementById('adminStepAuth').classList.add('hidden');
-            document.getElementById('adminStepFinalConfirm').classList.remove('hidden');
-        }
-        async function executeServerClearResults() {
-            const account = document.getElementById('adminAccountInput').value.trim();
-            const password = document.getElementById('adminPasswordInput').value;
-            try {
-                const res = await fetch(AppState.gasWebAppUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: 'clearOldResults', role: 'TEACHER', adminAccount: account, adminPassword: password, confirmed: true })
-                });
-                const r = await res.json();
-                showToast(r.message, r.status === 'success' ? 'success' : 'error');
-                if (r.status === 'success') closeTeacherAdminModal();
-            } catch (e) { showToast('Lỗi kết nối máy chủ.', 'error'); }
+                if (!res.ok || r.status !== 'success') throw new Error(r.message || 'Máy chủ không xác nhận xóa.');
+                showToast(r.message,'success');
+                closeTeacherAdminModal();
+            } catch (e) { showToast('Không thể xóa kết quả: '+e.message,'error'); }
+            finally { deleteBtn.disabled = false; deleteBtn.textContent = 'XÁC NHẬN XÓA'; }
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
