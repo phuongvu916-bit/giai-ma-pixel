@@ -286,12 +286,6 @@
                     <div class="flex items-center gap-3 mb-6 pb-4 border-b border-teal-100">
                         <span class="w-10 h-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center text-lg font-bold">
                             <i class="fa-solid fa-sliders"></i>
-                    <div id="sheetsSyncStatus" class="hidden p-3 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 text-center space-y-2">
-                        <div><i class="fa-solid fa-cloud-arrow-up mr-1"></i> <span id="sheetsSyncText">Đang gửi kết quả về Google Sheets...</span></div>
-                        <button type="button" id="retrySheetsSyncBtn" onclick="retrySendResultToGoogleSheets()" class="hidden px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer">
-                            <i class="fa-solid fa-rotate-right mr-1"></i> Gửi lại kết quả
-                        </button>
-                    </div>
                     </div>
 
                     <div class="space-y-6">
@@ -624,8 +618,9 @@
                         </div>
                     </div>
 
-                    <div id="sheetsSyncStatus" class="hidden p-3 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 text-center">
-                        <i class="fa-solid fa-cloud-arrow-up mr-1"></i> <span id="sheetsSyncText">Đang gửi kết quả về Google Sheets...</span>
+                    <div id="sheetsSyncStatus" class="hidden p-3 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 text-center space-y-2">
+                        <div><i class="fa-solid fa-cloud-arrow-up mr-1"></i> <span id="sheetsSyncText">Đang gửi kết quả về Google Sheets...</span></div>
+                        <button type="button" id="retrySheetsSyncBtn" onclick="retrySendResultToGoogleSheets()" class="hidden px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer">Gửi lại kết quả</button>
                     </div>
 
                     <div class="grid grid-cols-2 gap-3 no-print">
